@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext
+from tkinter import messagebox, scrolledtext, simpledialog
 import socket
 import threading
 
@@ -50,8 +50,8 @@ class ClienteTCP(tk.Tk):
         try:
             if not self.socket or self.socket._closed:
                 # Crear ventana para ingresar la dirección del servidor y nombre del cliente
-                self.server_address = tk.simpledialog.askstring("Conectar al servidor", "Dirección IP del servidor:")
-                self.client_name = tk.simpledialog.askstring("Conectar al servidor", "Nombre del cliente:")
+                self.server_address = simpledialog.askstring("Conectar al servidor", "Dirección IP del servidor:")
+                self.client_name = simpledialog.askstring("Conectar al servidor", "Nombre del cliente:")
 
                 if self.server_address and self.client_name:
                     self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
