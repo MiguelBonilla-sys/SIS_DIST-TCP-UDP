@@ -4,11 +4,11 @@ import sys
 def read_number(sock):
     a = ''
     while True:
-        msg =  sock.recv(1)
-        if (msg == b'\n'):
+        msg = sock.recv(1)
+        if (msg == b'\0'):
             break
         a += msg.decode()
-    return (int(a,10))
+    return int(a, 10)
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -26,12 +26,12 @@ while True:
         a = read_number(connection)
         b = read_number(connection)
         op = read_number(connection)
-        if (op == 0):
+        print(f'Received: a={a}, b={b}, op={op}')
+        if op == 0:
             res = a + b
         else:
             res = a - b
         message = str(res) + "\0"
-        message = message + "\0"
         connection.sendall(message.encode())
     finally:
         connection.close()
