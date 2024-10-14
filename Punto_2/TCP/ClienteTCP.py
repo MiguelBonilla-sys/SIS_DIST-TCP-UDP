@@ -18,6 +18,7 @@ class ClienteTCP(tk.Tk):
         self.dis = None
         self.dos = None
         self.client_name = ""
+        self.server_address = ""
         self.is_connected = False
 
         # Creación de componentes de la interfaz gráfica
@@ -48,26 +49,35 @@ class ClienteTCP(tk.Tk):
     # Método para conectar al servidor
     def connect_to_server(self):
         try:
-            if not self.socket or self.socket._closed:
-                # Crear ventana para ingresar la dirección del servidor y nombre del cliente
+            if self.socket:
+                self.socket.close()
+                self.is_connected = False
+
+            # Solicitar dirección del servidor y nombre del cliente solo si no están definidos
+            if not self.server_address:
                 self.server_address = simpledialog.askstring("Conectar al servidor", "Dirección IP del servidor:")
+            if not self.client_name:
                 self.client_name = simpledialog.askstring("Conectar al servidor", "Nombre del cliente:")
 
-                if self.server_address and self.client_name:
-                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.socket.connect((self.server_address, 5004))
-                    self.dis = self.socket.makefile('r')
-                    self.dos = self.socket.makefile('w')
+            if self.server_address and self.client_name:
+                self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.socket.connect((self.server_address, 5004))
+                self.dis = self.socket.makefile('r')
+                self.dos = self.socket.makefile('w')
 
-                    self.dos.write(self.client_name + '\n')
-                    self.dos.flush()
-                    self.is_connected = True
+                self.dos.write(self.client_name + '\n')
+                self.dos.flush()
+                self.is_connected = True
 
-                    self.receive_messages_thread = threading.Thread(target=self.receive_messages)
-                    self.receive_messages_thread.daemon = True
-                    self.receive_messages_thread.start()
-                else:
-                    self.show_error_and_exit("Conexión cancelada por el usuario.")
+                # Solicitar mensajes no entregados
+                self.dos.write("RECUPERAR_MENSAJES\n")
+                self.dos.flush()
+
+                self.receive_messages_thread = threading.Thread(target=self.receive_messages)
+                self.receive_messages_thread.daemon = True
+                self.receive_messages_thread.start()
+            else:
+                self.show_error_and_exit("Conexión cancelada por el usuario.")
         except (socket.error, OSError) as e:
             self.show_error_and_exit("Error al reconectar con el servidor.")
             print(e)
@@ -119,6 +129,7 @@ class ClienteTCP(tk.Tk):
 
     # Método para reconectar al servidor
     def reconnect_to_server(self):
+        print("Intentando reconectar...")  # Línea de depuración
         if not self.is_connected:
             self.connect_to_server()
 

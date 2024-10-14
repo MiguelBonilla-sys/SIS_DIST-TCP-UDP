@@ -76,6 +76,8 @@ def recibir_mensajes_cliente(cliente, dis, dos):
                 print("Reconectando al cliente...")
                 actualizar_estado_cliente(cliente, True)
                 enviar_mensajes_pendientes(cliente)
+            elif client_message == "RECUPERAR_MENSAJES":
+                enviar_mensajes_pendientes(cliente)
             else:
                 mensajes.append(Mensaje(cliente.nombre, client_message))
                 enviar_mensaje_otros_clientes(cliente, cliente.nombre, client_message)
