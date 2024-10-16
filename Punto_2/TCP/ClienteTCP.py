@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import messagebox, scrolledtext, simpledialog
+from tkinter import messagebox, scrolledtext, simpledialog, filedialog
 import socket
 import threading
+import os
 
 class ClienteTCP(tk.Tk):
 
@@ -42,6 +43,9 @@ class ClienteTCP(tk.Tk):
 
         self.reconnect_button = tk.Button(button_frame, text="Reconectar", bg="cyan", command=self.reconnect_to_server)
         self.reconnect_button.pack(side=tk.LEFT, padx=5)
+
+        self.send_file_button = tk.Button(button_frame, text="Enviar Archivo", bg="green", command=self.send_file)
+        self.send_file_button.pack(side=tk.LEFT, padx=5)
 
         # Conectar al servidor
         self.connect_to_server()
@@ -105,13 +109,43 @@ class ClienteTCP(tk.Tk):
 
         self.message_field.delete(0, tk.END)
 
+    # Método para enviar archivos al servidor
+    def send_file(self):
+        if not self.is_connected:
+            messagebox.showerror("Error", "No estás conectado al servidor.")
+            return
+    
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg")])
+        if not file_path:
+            return
+    
+        try:
+            filename = os.path.basename(file_path)
+            filesize = os.path.getsize(file_path)
+            self.dos.write(f"ENVIAR_ARCHIVO {filename} {filesize}\n")
+            self.dos.flush()
+    
+            with open(file_path, 'rb') as f:
+                while True:
+                    data = f.read(1024)
+                    if not data:
+                        break
+                    self.socket.sendall(data)
+            self.show_message(f"Archivo enviado: {filename}")
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al enviar el archivo.")
+            print(e)
     # Método para recibir mensajes del servidor
     def receive_messages(self):
         try:
             while True:
                 message = self.dis.readline().strip()
                 if message:
-                    self.show_message(message)
+                    if message.startswith("NUEVO_ARCHIVO"):
+                        _, filename = message.split()
+                        self.show_message(f"Nuevo archivo disponible: {filename}")
+                    else:
+                        self.show_message(message)
         except (socket.error, OSError):
             self.show_error_and_exit("Error 504: No se puede conectar con el servidor.")
 

@@ -78,6 +78,8 @@ def recibir_mensajes_cliente(cliente, dis, dos):
                 enviar_mensajes_pendientes(cliente)
             elif client_message == "RECUPERAR_MENSAJES":
                 enviar_mensajes_pendientes(cliente)
+            elif client_message.startswith("ENVIAR_ARCHIVO"):
+                recibir_archivo(cliente, dis, client_message)
             else:
                 mensajes.append(Mensaje(cliente.nombre, client_message))
                 enviar_mensaje_otros_clientes(cliente, cliente.nombre, client_message)
@@ -85,6 +87,33 @@ def recibir_mensajes_cliente(cliente, dis, dos):
             print(f"Error al recibir el mensaje del cliente: {e}")
             actualizar_estado_cliente(cliente, False)
             break
+
+# Método para recibir archivos del cliente
+def recibir_archivo(cliente, dis, client_message):
+    try:
+        _, filename, filesize = client_message.split()
+        filesize = int(filesize)
+        with open(filename, 'wb') as f:
+            while filesize > 0:
+                data = dis.read(min(filesize, 1024))
+                if not data:
+                    break
+                f.write(data.encode('latin1'))  # Usar 'latin1' para evitar problemas de codificación
+                filesize -= len(data)
+        print(f"Archivo recibido: {filename}")
+        notificar_nuevo_archivo(filename)
+    except Exception as e:
+        print(f"Error al recibir el archivo: {e}")
+
+# Método para notificar a los clientes sobre un nuevo archivo
+def notificar_nuevo_archivo(filename):
+    for cliente in clientes:
+        if cliente.conectado:
+            try:
+                cliente.dos.write(f"NUEVO_ARCHIVO {filename}\n")
+                cliente.dos.flush()
+            except Exception as e:
+                print(f"Error al notificar al cliente sobre el nuevo archivo: {e}")
 
 # Método para actualizar el estado de conexión de un cliente
 def actualizar_estado_cliente(cliente, conectado):
