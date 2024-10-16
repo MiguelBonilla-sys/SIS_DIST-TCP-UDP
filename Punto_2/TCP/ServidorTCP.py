@@ -15,7 +15,6 @@ class Mensaje:
     def __init__(self, nombre_cliente, contenido):
         self.nombre_cliente = nombre_cliente
         self.contenido = contenido
-        self.enviado = False
 
 # Listas para almacenar los clientes y los mensajes
 clientes = []
@@ -80,6 +79,8 @@ def recibir_mensajes_cliente(cliente, dis, dos):
                 enviar_mensajes_pendientes(cliente)
             elif client_message.startswith("ENVIAR_ARCHIVO"):
                 recibir_archivo(cliente, dis, client_message)
+            elif client_message.startswith("DESCARGAR_ARCHIVO"):
+                enviar_archivo(cliente, client_message)
             else:
                 mensajes.append(Mensaje(cliente.nombre, client_message))
                 enviar_mensaje_otros_clientes(cliente, cliente.nombre, client_message)
@@ -104,6 +105,28 @@ def recibir_archivo(cliente, dis, client_message):
         notificar_nuevo_archivo(filename)
     except Exception as e:
         print(f"Error al recibir el archivo: {e}")
+
+# Método para enviar archivos al cliente
+def enviar_archivo(cliente, client_message):
+    try:
+        _, filename = client_message.split()
+        if os.path.exists(filename):
+            filesize = os.path.getsize(filename)
+            cliente.dos.write(f"DESCARGAR_ARCHIVO {filename} {filesize}\n".encode())
+            cliente.dos.flush()
+            with open(filename, 'rb') as f:
+                while True:
+                    data = f.read(1024)
+                    if not data:
+                        break
+                    cliente.dos.write(data)
+                    cliente.dos.flush()
+            print(f"Archivo enviado: {filename}")
+        else:
+            cliente.dos.write(f"ERROR Archivo no encontrado: {filename}\n".encode())
+            cliente.dos.flush()
+    except Exception as e:
+        print(f"Error al enviar el archivo: {e}")
 
 # Método para notificar a los clientes sobre un nuevo archivo
 def notificar_nuevo_archivo(filename):

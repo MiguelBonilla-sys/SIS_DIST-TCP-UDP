@@ -145,10 +145,38 @@ class ClienteTCP(tk.Tk):
                     if message.startswith("NUEVO_ARCHIVO"):
                         _, filename = message.split()
                         self.show_message(f"Nuevo archivo disponible: {filename}")
+                        self.solicitar_descarga_archivo(filename)
+                    elif message.startswith("DESCARGAR_ARCHIVO"):
+                        _, filename, filesize = message.split()
+                        self.recibir_archivo(filename, int(filesize))
                     else:
                         self.show_message(message)
         except (socket.error, OSError):
             self.show_error_and_exit("Error 504: No se puede conectar con el servidor.")
+
+    # Método para solicitar la descarga de un archivo
+    def solicitar_descarga_archivo(self, filename):
+        try:
+            self.dos.write(f"DESCARGAR_ARCHIVO {filename}\n".encode())
+            self.dos.flush()
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al solicitar la descarga del archivo.")
+            print(e)
+
+    # Método para recibir un archivo del servidor
+    def recibir_archivo(self, filename, filesize):
+        try:
+            with open(filename, 'wb') as f:
+                while filesize > 0:
+                    data = self.dis.read(min(filesize, 1024))
+                    if not data:
+                        break
+                    f.write(data)
+                    filesize -= len(data)
+            self.show_message(f"Archivo descargado: {filename}")
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al recibir el archivo.")
+            print(e)
 
     # Método para desconectar del servidor
     def disconnect_from_server(self):
