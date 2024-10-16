@@ -66,15 +66,15 @@ class ClienteTCP(tk.Tk):
             if self.server_address and self.client_name:
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((self.server_address, 5004))
-                self.dis = self.socket.makefile('r')
-                self.dos = self.socket.makefile('w')
+                self.dis = self.socket.makefile('rb')
+                self.dos = self.socket.makefile('wb')
 
-                self.dos.write(self.client_name + '\n')
+                self.dos.write((self.client_name + '\n').encode())
                 self.dos.flush()
                 self.is_connected = True
 
                 # Solicitar mensajes no entregados
-                self.dos.write("RECUPERAR_MENSAJES\n")
+                self.dos.write(b"RECUPERAR_MENSAJES\n")
                 self.dos.flush()
 
                 self.receive_messages_thread = threading.Thread(target=self.receive_messages)
@@ -97,7 +97,7 @@ class ClienteTCP(tk.Tk):
         self.update_message_status_indicator("Se está enviando")
 
         try:
-            self.dos.write(message + '\n')
+            self.dos.write((message + '\n').encode())
             self.dos.flush()
             self.update_message_status_indicator("Enviado y recibido")
             if message.lower() == "terminar":
@@ -122,7 +122,7 @@ class ClienteTCP(tk.Tk):
         try:
             filename = os.path.basename(file_path)
             filesize = os.path.getsize(file_path)
-            self.dos.write(f"ENVIAR_ARCHIVO {filename} {filesize}\n")
+            self.dos.write(f"ENVIAR_ARCHIVO {filename} {filesize}\n".encode())
             self.dos.flush()
     
             with open(file_path, 'rb') as f:
@@ -135,11 +135,12 @@ class ClienteTCP(tk.Tk):
         except (socket.error, OSError) as e:
             self.show_error_and_exit("Error al enviar el archivo.")
             print(e)
+
     # Método para recibir mensajes del servidor
     def receive_messages(self):
         try:
             while True:
-                message = self.dis.readline().strip()
+                message = self.dis.readline().strip().decode()
                 if message:
                     if message.startswith("NUEVO_ARCHIVO"):
                         _, filename = message.split()
@@ -153,7 +154,7 @@ class ClienteTCP(tk.Tk):
     def disconnect_from_server(self):
         try:
             if self.is_connected:
-                self.dos.write("Desconectar\n")
+                self.dos.write(b"Desconectar\n")
                 self.dos.flush()
                 self.is_connected = False
                 self.update_message_status_indicator("Desconectado")
@@ -170,7 +171,7 @@ class ClienteTCP(tk.Tk):
     # Método para terminar la conexión con el servidor
     def terminate_connection(self):
         try:
-            self.dos.write("Terminar\n")
+            self.dos.write(b"Terminar\n")
             self.dos.flush()
             self.socket.close()
             self.quit()

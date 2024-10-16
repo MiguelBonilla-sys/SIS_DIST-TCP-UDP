@@ -39,11 +39,11 @@ def iniciar_servidor():
         client_socket, addr = server_socket.accept()
 
         # Creación de los streams de entrada y salida
-        dis = client_socket.makefile('r')
-        dos = client_socket.makefile('w')
+        dis = client_socket.makefile('rb')
+        dos = client_socket.makefile('wb')
 
         # Lectura del nombre del cliente
-        client_name = dis.readline().strip()
+        client_name = dis.readline().strip().decode()
         cliente = Cliente(client_name, dos)
         clientes.append(cliente)
 
@@ -57,7 +57,7 @@ def iniciar_servidor():
 def recibir_mensajes_cliente(cliente, dis, dos):
     while True:
         try:
-            client_message = dis.readline().strip()
+            client_message = dis.readline().strip().decode()
             print(f"Mensaje recibido desde el cliente ({cliente.nombre}): {client_message}")
             if client_message == "Terminar":
                 print("Terminando la conexión con el cliente...")
@@ -67,7 +67,7 @@ def recibir_mensajes_cliente(cliente, dis, dos):
                 break
             elif client_message == "Desconectar":
                 print("Desconectando al cliente...")
-                dos.write("Desconectado\n")
+                dos.write(b"Desconectado\n")
                 dos.flush()
                 actualizar_estado_cliente(cliente, False)
                 with open(CLIENTS_FILE, "a") as file:
@@ -98,7 +98,7 @@ def recibir_archivo(cliente, dis, client_message):
                 data = dis.read(min(filesize, 1024))
                 if not data:
                     break
-                f.write(data.encode('latin1'))  # Usar 'latin1' para evitar problemas de codificación
+                f.write(data)
                 filesize -= len(data)
         print(f"Archivo recibido: {filename}")
         notificar_nuevo_archivo(filename)
@@ -110,7 +110,7 @@ def notificar_nuevo_archivo(filename):
     for cliente in clientes:
         if cliente.conectado:
             try:
-                cliente.dos.write(f"NUEVO_ARCHIVO {filename}\n")
+                cliente.dos.write(f"NUEVO_ARCHIVO {filename}\n".encode())
                 cliente.dos.flush()
             except Exception as e:
                 print(f"Error al notificar al cliente sobre el nuevo archivo: {e}")
@@ -123,7 +123,7 @@ def actualizar_estado_cliente(cliente, conectado):
 def enviar_mensajes_pendientes(cliente):
     for mensaje in cliente.mensajes_pendientes:
         try:
-            cliente.dos.write(f"{mensaje}\n")
+            cliente.dos.write(f"{mensaje}\n".encode())
             cliente.dos.flush()
         except Exception as e:
             print(f"Error al enviar el mensaje al cliente: {e}")
@@ -141,7 +141,7 @@ def enviar_mensaje_otros_clientes(sender_cliente, sender_name, message):
 # Método para enviar un mensaje a un cliente
 def enviar_mensaje(cliente, mensaje):
     try:
-        cliente.dos.write(f"{mensaje.nombre_cliente}: {mensaje.contenido}\n")
+        cliente.dos.write(f"{mensaje.nombre_cliente}: {mensaje.contenido}\n".encode())
         cliente.dos.flush()
         mensaje.enviado = True
     except Exception as e:
