@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 import socket
-
+#----
 class ClienteUDP(tk.Tk):
 
     def __init__(self):
