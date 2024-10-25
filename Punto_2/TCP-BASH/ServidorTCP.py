@@ -35,14 +35,16 @@ def iniciar_servidor():
     while True:
         print("Servidor iniciado, esperando clientes...")
 
-        client_socket, addr = server_socket.accept()
+        client_socket, _ = server_socket.accept()
         dis = client_socket.makefile('rb')
         dos = client_socket.makefile('wb')
 
         client_name = dis.readline().strip().decode()
+        print(f"Nombre del cliente recibido: {client_name}")  # Línea de depuración
 
-        # Recibir clave pública del cliente
-        client_public_pem = dis.readline().strip()
+        # En lugar de dis.read(), usar readline para recibir la clave pública
+        client_public_pem = dis.readline().strip()  # Usar readline para asegurarte de recibir todo el contenido
+        print(f"Clave pública recibida:\n{client_public_pem.decode()}")  # Línea de depuración
         client_public_key = serialization.load_pem_public_key(client_public_pem)
 
         cliente = Cliente(client_name, dos, client_public_key)
@@ -53,12 +55,14 @@ def iniciar_servidor():
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
-        dos.write(public_pem + b'\n')
+        print(f"Clave pública del servidor enviada:\n{public_pem.decode()}")  # Línea de depuración
+        dos.write(public_pem)
+        dos.write(b'\n')  # Asegúrate de que haya un salto de línea al final
         dos.flush()
 
         enviar_mensajes_pendientes(cliente)
         threading.Thread(target=recibir_mensajes_cliente, args=(cliente, dis, dos, private_key)).start()
-
+        
 def recibir_mensajes_cliente(cliente, dis, dos, private_key):
     while True:
         try:

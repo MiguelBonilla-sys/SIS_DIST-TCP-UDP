@@ -62,40 +62,47 @@ class ClienteTCP(tk.Tk):
             if self.socket:
                 self.socket.close()
                 self.is_connected = False
-
+    
             # Solicitar dirección del servidor y nombre del cliente solo si no están definidos
             if not self.server_address:
                 self.server_address = simpledialog.askstring("Conectar al servidor", "Dirección IP del servidor:")
             if not self.client_name:
                 self.client_name = simpledialog.askstring("Conectar al servidor", "Nombre del cliente:")
-
+    
             if self.server_address and self.client_name:
+                print(f"Conectando al servidor {self.server_address} como {self.client_name}")
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((self.server_address, 5004))
                 self.dis = self.socket.makefile('rb')
                 self.dos = self.socket.makefile('wb')
-
+    
                 self.dos.write((self.client_name + '\n').encode())
                 self.dos.flush()
-
+    
                 # Enviar clave pública al servidor
                 public_pem = self.public_key.public_bytes(
                     encoding=serialization.Encoding.PEM,
                     format=serialization.PublicFormat.SubjectPublicKeyInfo
                 )
-                self.dos.write(public_pem + b'\n')
+                print(f"Clave pública enviada:\n{public_pem.decode()}")  # Línea de depuración
+                self.dos.write(public_pem)
+                self.dos.write(b'\n')  # Asegúrate de que haya un salto de línea al final
                 self.dos.flush()
-
+    
                 # Recibir clave pública del servidor
                 server_public_pem = self.dis.readline().strip()
+                print(f"Contenido recibido como clave pública del servidor:\n{server_public_pem.decode()}")  # Línea de depuración
+                if not server_public_pem:
+                    raise ValueError("Clave pública del servidor vacía o malformada.")
                 self.server_public_key = serialization.load_pem_public_key(server_public_pem)
-
+    
                 self.is_connected = True
-
+                print("Conexión establecida con el servidor")
+    
                 # Solicitar mensajes no entregados
                 self.dos.write(b"RECUPERAR_MENSAJES\n")
                 self.dos.flush()
-
+    
                 self.receive_messages_thread = threading.Thread(target=self.receive_messages)
                 self.receive_messages_thread.daemon = True
                 self.receive_messages_thread.start()
@@ -104,6 +111,9 @@ class ClienteTCP(tk.Tk):
         except (socket.error, OSError) as e:
             self.show_error_and_exit("Error al reconectar con el servidor.")
             print(e)
+        except ValueError as ve:
+            self.show_error_and_exit(str(ve))
+            print(ve)
 
     # Método para enviar mensajes al servidor
     def send_message(self):
@@ -124,6 +134,7 @@ class ClienteTCP(tk.Tk):
                     label=None
                 )
             )
+            print(f"Mensaje encriptado: {encrypted_message}")  # Línea de depuración
             self.dos.write(encrypted_message + b'\n')
             self.dos.flush()
             self.update_message_status_indicator("Enviado y recibido")
@@ -169,6 +180,7 @@ class ClienteTCP(tk.Tk):
             while True:
                 encrypted_message = self.dis.readline().strip()
                 if encrypted_message:
+                    print(f"Mensaje encriptado recibido: {encrypted_message}")  # Línea de depuración
                     decrypted_message = self.private_key.decrypt(
                         encrypted_message,
                         padding.OAEP(
@@ -177,6 +189,7 @@ class ClienteTCP(tk.Tk):
                             label=None
                         )
                     )
+                    print(f"Mensaje desencriptado: {decrypted_message.decode()}")  # Línea de depuración
                     self.show_message(decrypted_message.decode())
         except (socket.error, OSError):
             self.show_error_and_exit("Error 504: No se puede conectar con el servidor.")
