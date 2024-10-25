@@ -40,10 +40,17 @@ def iniciar_servidor():
         dos = client_socket.makefile('wb')
 
         client_name = dis.readline().strip().decode()
-        print(f"Nombre del cliente recibido: {client_name}")  # Línea de depuración
+        print(f"Nombre del cliente recibido: {client_name}")
 
-        # En lugar de dis.read(), usar readline para recibir la clave pública
-        client_public_pem = dis.readline().strip()  # Usar readline para asegurarte de recibir todo el contenido
+        # Recibir clave pública del cliente
+        client_public_pem = b""
+        while True:
+            line = dis.readline()
+            if b'END PUBLIC KEY-----' in line:
+                client_public_pem += line
+                break
+            client_public_pem += line
+        
         print(f"Clave pública recibida:\n{client_public_pem.decode()}")  # Línea de depuración
         client_public_key = serialization.load_pem_public_key(client_public_pem)
 
@@ -56,8 +63,7 @@ def iniciar_servidor():
             format=serialization.PublicFormat.SubjectPublicKeyInfo
         )
         print(f"Clave pública del servidor enviada:\n{public_pem.decode()}")  # Línea de depuración
-        dos.write(public_pem)
-        dos.write(b'\n')  # Asegúrate de que haya un salto de línea al final
+        dos.write(public_pem + b'\n')
         dos.flush()
 
         enviar_mensajes_pendientes(cliente)

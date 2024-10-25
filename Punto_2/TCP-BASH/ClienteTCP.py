@@ -85,17 +85,25 @@ class ClienteTCP(tk.Tk):
                     format=serialization.PublicFormat.SubjectPublicKeyInfo
                 )
                 print(f"Clave pública enviada:\n{public_pem.decode()}")  # Línea de depuración
-                self.dos.write(public_pem)
-                self.dos.write(b'\n')  # Asegúrate de que haya un salto de línea al final
+                self.dos.write(public_pem + b'\n')  # Asegúrate de que haya un salto de línea al final
                 self.dos.flush()
     
                 # Recibir clave pública del servidor
-                server_public_pem = self.dis.readline().strip()
-                print(f"Contenido recibido como clave pública del servidor:\n{server_public_pem.decode()}")  # Línea de depuración
+                server_public_pem = b""
+                while True:
+                    line = self.dis.readline()
+                    if b'END PUBLIC KEY-----' in line:
+                        server_public_pem += line
+                        break
+                    server_public_pem += line
+
+                print(f"Server public key received:\n{server_public_pem.decode()}")  # Debugging line
                 if not server_public_pem:
                     raise ValueError("Clave pública del servidor vacía o malformada.")
                 self.server_public_key = serialization.load_pem_public_key(server_public_pem)
-    
+
+
+
                 self.is_connected = True
                 print("Conexión establecida con el servidor")
     
