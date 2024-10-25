@@ -7,8 +7,10 @@ from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 class ClienteTCP(tk.Tk):
+
     def __init__(self):
         super().__init__()
+
         # Configuración de la ventana
         self.title("Cliente TCP")
         self.geometry("600x500")
@@ -54,12 +56,14 @@ class ClienteTCP(tk.Tk):
         # Conectar al servidor
         self.connect_to_server()
 
+    # Método para conectar al servidor
     def connect_to_server(self):
         try:
             if self.socket:
                 self.socket.close()
                 self.is_connected = False
 
+            # Solicitar dirección del servidor y nombre del cliente solo si no están definidos
             if not self.server_address:
                 self.server_address = simpledialog.askstring("Conectar al servidor", "Dirección IP del servidor:")
             if not self.client_name:
@@ -88,6 +92,7 @@ class ClienteTCP(tk.Tk):
 
                 self.is_connected = True
 
+                # Solicitar mensajes no entregados
                 self.dos.write(b"RECUPERAR_MENSAJES\n")
                 self.dos.flush()
 
@@ -100,6 +105,7 @@ class ClienteTCP(tk.Tk):
             self.show_error_and_exit("Error al reconectar con el servidor.")
             print(e)
 
+    # Método para enviar mensajes al servidor
     def send_message(self):
         if not self.is_connected:
             messagebox.showerror("Error", "No estás conectado al servidor.")
@@ -130,6 +136,34 @@ class ClienteTCP(tk.Tk):
 
         self.message_field.delete(0, tk.END)
 
+    # Método para enviar archivos al servidor
+    def send_file(self):
+        if not self.is_connected:
+            messagebox.showerror("Error", "No estás conectado al servidor.")
+            return
+    
+        file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg")])
+        if not file_path:
+            return
+    
+        try:
+            filename = os.path.basename(file_path)
+            filesize = os.path.getsize(file_path)
+            self.dos.write(f"ENVIAR_ARCHIVO {filename} {filesize}\n".encode())
+            self.dos.flush()
+    
+            with open(file_path, 'rb') as f:
+                while True:
+                    data = f.read(1024)
+                    if not data:
+                        break
+                    self.socket.sendall(data)
+            self.show_message(f"Archivo enviado: {filename}")
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al enviar el archivo.")
+            print(e)
+
+    # Método para recibir mensajes del servidor
     def receive_messages(self):
         try:
             while True:
@@ -147,8 +181,89 @@ class ClienteTCP(tk.Tk):
         except (socket.error, OSError):
             self.show_error_and_exit("Error 504: No se puede conectar con el servidor.")
 
-    # Otros métodos (send_file, disconnect_from_server, reconnect_to_server, terminate_connection, show_message, show_error_and_exit, update_message_status_indicator, on_closing) permanecen igual
+    # Método para solicitar la descarga de un archivo
+    def solicitar_descarga_archivo(self, filename):
+        try:
+            self.dos.write(f"DESCARGAR_ARCHIVO {filename}\n".encode())
+            self.dos.flush()
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al solicitar la descarga del archivo.")
+            print(e)
 
+    # Método para recibir un archivo del servidor
+    def recibir_archivo(self, filename, filesize):
+        try:
+            with open(filename, 'wb') as f:
+                while filesize > 0:
+                    data = self.dis.read(min(filesize, 1024))
+                    if not data:
+                        break
+                    f.write(data)
+                    filesize -= len(data)
+            self.show_message(f"Archivo descargado: {filename}")
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al recibir el archivo.")
+            print(e)
+
+    # Método para desconectar del servidor
+    def disconnect_from_server(self):
+        try:
+            if self.is_connected:
+                self.dos.write(b"Desconectar\n")
+                self.dos.flush()
+                self.is_connected = False
+                self.update_message_status_indicator("Desconectado")
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al desconectar del servidor.")
+            print(e)
+
+    # Método para reconectar al servidor
+    def reconnect_to_server(self):
+        print("Intentando reconectar...")  # Línea de depuración
+        if not self.is_connected:
+            self.connect_to_server()
+
+    # Método para terminar la conexión con el servidor
+    def terminate_connection(self):
+        try:
+            self.dos.write(b"Terminar\n")
+            self.dos.flush()
+            self.socket.close()
+            self.quit()
+        except (socket.error, OSError) as e:
+            self.show_error_and_exit("Error al terminar la conexión con el servidor.")
+            print(e)
+
+    # Método para mostrar mensajes en el área de chat
+    def show_message(self, message):
+        self.chat_area.config(state='normal')
+        self.chat_area.insert(tk.END, message + '\n')
+        self.chat_area.config(state='disabled')
+
+    # Método para mostrar errores y terminar la ejecución
+    def show_error_and_exit(self, error_message):
+        messagebox.showerror("Error", error_message)
+        self.quit()
+
+    # Método para actualizar el indicador de estado de los mensajes
+    def update_message_status_indicator(self, status):
+        if status == "Enviado y recibido":
+            self.message_status_indicator.config(bg="green", text=status)
+        elif status == "Se está enviando":
+            self.message_status_indicator.config(bg="yellow", text=status)
+        elif status == "Se cerró el servidor":
+            self.message_status_indicator.config(bg="red", text=status)
+        elif status == "Desconectado":
+            self.message_status_indicator.config(bg="blue", text=status)
+
+    # Método para cerrar la aplicación de forma correcta
+    def on_closing(self):
+        if messagebox.askokcancel("Salir", "¿Quieres salir?"):
+            if self.is_connected:
+                self.terminate_connection()
+            self.quit()
+
+# Método principal para iniciar la aplicación
 if __name__ == "__main__":
     client_app = ClienteTCP()
     client_app.mainloop()
