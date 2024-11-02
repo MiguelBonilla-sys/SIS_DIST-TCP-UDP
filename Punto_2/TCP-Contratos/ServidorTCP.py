@@ -5,13 +5,15 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import os
+import json  # Importar el módulo json
 
 class Cliente:
-    def __init__(self, nombre, dos, aes_key):
+    def __init__(self, nombre, dos, aes_key, public_key):
         self.nombre = nombre
         self.dos = dos
         self.conectado = True
         self.aes_key = aes_key  # Clave AES
+        self.public_key = public_key  # Clave pública del cliente
 
 clientes = []
 private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -60,7 +62,7 @@ def iniciar_servidor():
 
             client_name = dis.readline().strip().decode()
             print(f"Nombre del cliente recibido: {client_name}")
-            cliente = Cliente(client_name, dos, aes_key)
+            cliente = Cliente(client_name, dos, aes_key, public_key_pem.decode())
             clientes.append(cliente)
 
             threading.Thread(target=recibir_mensajes_cliente, args=(cliente, dis)).start()
@@ -111,6 +113,7 @@ def enviar_mensaje_otros_clientes(sender_cliente, sender_name, message):
                     cliente.dos.write(f"{sender_name}: {message}\n".encode())
                     cliente.dos.flush()
                     print(f"Mensaje enviado a {cliente.nombre}: {message}")
+                    registrar_mensaje(sender_cliente, cliente, message)
                 except Exception as e:
                     print(f"Error al enviar mensaje a {cliente.nombre}: {e}")
                     actualizar_estado_cliente(cliente, False)
@@ -119,6 +122,19 @@ def enviar_mensaje_otros_clientes(sender_cliente, sender_name, message):
                     mensajes_pendientes[cliente.nombre] = []
                 mensajes_pendientes[cliente.nombre].append(f"{sender_name}: {message}")
                 print(f"Mensaje almacenado para {cliente.nombre}: {message}")
+                registrar_mensaje(sender_cliente, cliente, message)
+
+def registrar_mensaje(sender_cliente, receiver_cliente, message):
+    mensaje_info = {
+        "emisor": sender_cliente.nombre,
+        "receptor": receiver_cliente.nombre,
+        "mensaje": message,
+        "llave_publica_emisor": sender_cliente.public_key,
+        "llave_publica_receptor": receiver_cliente.public_key
+    }
+    with open("registro_mensajes.json", "a") as file:
+        json.dump(mensaje_info, file)
+        file.write("\n")
 
 def enviar_mensajes_pendientes(cliente):
     if cliente.nombre in mensajes_pendientes:
